@@ -3,3 +3,5 @@ numpy
 tensorflow
 scikit-learn
 pickle-mixin
+gspread
+google-auth
