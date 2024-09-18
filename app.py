@@ -7,7 +7,10 @@ from google.oauth2.service_account import Credentials
 from datetime import datetime
 
 # Define the scope
-scope = ['https://www.googleapis.com/auth/spreadsheets']
+scope = [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive'
+]
 
 # Load credentials from the Streamlit secrets
 credentials = Credentials.from_service_account_info(
@@ -19,7 +22,8 @@ credentials = Credentials.from_service_account_info(
 client = gspread.authorize(credentials)
 
 # Open the Google Sheet (replace 'Your Google Sheet Name' with the actual name)
-sheet = client.open('a401ventures').sheet1  # or use .worksheet('Sheet1') if needed
+spreadsheet_id = '1M3_j3bBKjIXEY1MAtg9NHLcHBXftfrpLTt7vGhjUHrQ'
+sheet = client.open_by_key(spreadsheet_id).sheet1  # or use .worksheet('Sheet1') if needed
 
 
 # Load the pre-trained model and scaler
