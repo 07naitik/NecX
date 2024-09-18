@@ -2,6 +2,25 @@ import streamlit as st
 import numpy as np
 import pickle
 from tensorflow.keras.models import load_model
+import gspread
+from google.oauth2.service_account import Credentials
+from datetime import datetime
+
+# Define the scope
+scope = ['https://www.googleapis.com/auth/spreadsheets']
+
+# Load credentials from the Streamlit secrets
+credentials = Credentials.from_service_account_info(
+    st.secrets["gcp_service_account"],
+    scopes=scope
+)
+
+# Authorize the client
+client = gspread.authorize(credentials)
+
+# Open the Google Sheet (replace 'Your Google Sheet Name' with the actual name)
+sheet = client.open('a401ventures').sheet1  # or use .worksheet('Sheet1') if needed
+
 
 # Load the pre-trained model and scaler
 try:
@@ -137,3 +156,47 @@ if st.button('Calculate Risk Score'):
         st.subheader(f'Your Health Risk Score: {final_risk_score:.2f}')
     except Exception as e:
         st.write(f"Error during prediction: {e}")
+
+
+    # Collect all the inputs into a dictionary
+    data = {
+        'Timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        'Pin Code': pin_code,
+        'Age': age,
+        'Gender': gender,
+        'Years Residence': years_residence,
+        'Respiratory Illnesses': ', '.join(respiratory_illnesses),
+        'Other Respiratory Illness': other_respiratory_illness,
+        'Chronic Conditions': chronic_conditions,
+        'Healthcare Visits': healthcare_visits,
+        'Air Quality': air_quality,
+        'Exposed to Smoke': exposed_to_smoke,
+        'Smoke Frequency': smoke_frequency if exposed_to_smoke == 'Yes' else '',
+        'Mold Concerns': mold_concerns,
+        'Mold Description': mold_description if mold_concerns == 'Yes' else '',
+        'Pollution Nearby': pollution_nearby,
+        'Pollution Description': pollution_description if pollution_nearby == 'Yes' else '',
+        'Green Space Visits': green_space_visits,
+        'Air Purification': air_purification,
+        'Purification Type': purification_type if air_purification == 'Yes' else '',
+        'Neighborhood Noise': neighborhood_noise,
+        'Noise Sources': noise_sources if neighborhood_noise == 'Yes' else '',
+        'Artificial Light': artificial_light,
+        'Light Description': light_description if artificial_light == 'Yes' else '',
+        'Environmental Issue': environmental_issue,
+        'Additional Comments': additional_comments,
+        'Risk Score': final_risk_score
+    }
+
+    # Append data to Google Sheet
+    try:
+        # Check if the sheet is empty
+        if len(sheet.get_all_records()) == 0:
+            # Write the header row
+            sheet.append_row(list(data.keys()))
+        
+        # Append the data
+        sheet.append_row(list(data.values()))
+    except Exception as e:
+        st.write(f"Error saving data to Google Sheet: {e}")
+
