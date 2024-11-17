@@ -5,6 +5,7 @@ from tensorflow.keras.models import load_model
 import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime
+import requests
 
 # Define the scope
 scope = [
@@ -25,6 +26,10 @@ client = gspread.authorize(credentials)
 spreadsheet_id = '1M3_j3bBKjIXEY1MAtg9NHLcHBXftfrpLTt7vGhjUHrQ'
 sheet = client.open_by_key(spreadsheet_id).sheet1
 
+# Define OpenWeatherMap API details
+OPENWEATHERMAP_API_KEY = st.secrets["openweathermap"]["api_key"]
+WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather"
+
 # Load the pre-trained model and scaler
 try:
     model = load_model('risk_score_model.h5')
@@ -32,26 +37,47 @@ try:
         scaler = pickle.load(f)
 except Exception as e:
     st.write(f"Error loading model or scaler: {e}")
+    
+def get_weather_data(lat, lon):
+    params = {
+        'lat': lat,
+        'lon': lon,
+        'appid': OPENWEATHERMAP_API_KEY
+    }
+    response = requests.get(WEATHER_API_URL, params=params)
+    data = response.json()
+    if response.status_code == 200:
+        return data
+    else:
+        st.write(f"Error fetching weather data: {data.get('message', 'Unknown error')}")
+        return None
 
 # Predefined environmental factors for 10 Boston pin codes (dummy data)
 pin_code_data = {
-    '02101': [80, 70, 40, 60, 50, 90, 55, 65, 70, 85, 75, 60],
-    '02102': [85, 75, 45, 65, 55, 85, 50, 60, 65, 80, 70, 55],
-    '02103': [90, 80, 50, 70, 60, 80, 45, 55, 60, 75, 65, 50],
-    '02104': [75, 65, 35, 55, 45, 95, 60, 70, 75, 90, 80, 65],
-    '02105': [82, 72, 42, 62, 52, 87, 57, 67, 72, 87, 77, 62],
-    '02106': [88, 78, 48, 68, 58, 83, 53, 63, 68, 83, 73, 58],
-    '02107': [78, 68, 38, 58, 48, 93, 63, 73, 78, 93, 83, 68],
-    '02108': [92, 82, 52, 72, 62, 77, 47, 57, 62, 77, 67, 52],
-    '02109': [90, 95, 30, 89, 20, 84, 10,  5, 30, 97, 91, 18],  # low risk example
-    '02110': [18, 14, 70, 30, 90, 23, 87, 79, 90, 26,  5, 98]  # high risk example
+    '02108': [80, 70, 40, 60, 50, 90, 55, 65, 70, 85, 75, 60],
+    '02109': [85, 75, 45, 65, 55, 85, 50, 60, 65, 80, 70, 55],
+    '02110': [90, 80, 50, 70, 60, 80, 45, 55, 60, 75, 65, 50],
+    '02111': [75, 65, 35, 55, 45, 95, 60, 70, 75, 90, 80, 65],
+    '02112': [82, 72, 42, 62, 52, 87, 57, 67, 72, 87, 77, 62],
+    '02113': [88, 78, 48, 68, 58, 83, 53, 63, 68, 83, 73, 58],
+    '02114': [78, 68, 38, 58, 48, 93, 63, 73, 78, 93, 83, 68],
+    '02115': [92, 82, 52, 72, 62, 77, 47, 57, 62, 77, 67, 52],
+    '02116': [90, 95, 30, 89, 20, 84, 10,  5, 30, 97, 91, 18],  # low risk example
+    '02117': [18, 14, 70, 30, 90, 23, 87, 79, 90, 26,  5, 98]  # high risk example
 }
 
-# Define a function to adjust the risk score based on medical history
-def adjust_risk_score(risk_score, medical_history):
-    adjustment_factor = 1 + 0.05 * sum(medical_history)
-    adjusted_score = risk_score * adjustment_factor
-    return min(adjusted_score, 100)  # Ensure the score doesn't exceed 100
+boston_zip_coords = {
+    "02108": {"latitude": 42.3571, "longitude": -71.0636},
+    "02109": {"latitude": 42.3611, "longitude": -71.0552},
+    "02110": {"latitude": 42.3576, "longitude": -71.0533},
+    "02111": {"latitude": 42.3497, "longitude": -71.0603},
+    "02112": {"latitude": 42.3601, "longitude": -71.0589}, 
+    "02113": {"latitude": 42.3663, "longitude": -71.0544},
+    "02114": {"latitude": 42.3614, "longitude": -71.0677},
+    "02115": {"latitude": 42.3433, "longitude": -71.0927},
+    "02116": {"latitude": 42.3496, "longitude": -71.0776},
+    "02117": {"latitude": 42.3610, "longitude": -71.0580}   
+}
 
 # Page navigation handling
 if 'page' not in st.session_state:
@@ -172,8 +198,19 @@ elif st.session_state.page == 'main':
     # Calculate the risk score
     if st.button('Calculate Risk Score'):
         try:
+            lat = boston_zip_coords[pin_code]["latitude"]
+            lon = boston_zip_coords[pin_code]["longitude"]
+            
+            weather_data = get_weather_data(lat , lon)
+            
+            temperature = weather_data['main']['temp']
+            humidity = weather_data['main']['humidity']
+            
             # Get the environmental factors based on pin code
             env_factors = pin_code_data[pin_code]
+            
+            env_factors[4] = temperature - 250
+            env_factors[1] = humidity
 
             # Standardize the environmental factors
             env_factors_scaled = scaler.transform([env_factors])
@@ -211,6 +248,8 @@ elif st.session_state.page == 'main':
                 'Light Description': light_description,
                 'Environmental Issue': environmental_issue,
                 'Additional Comments': additional_comments,
+                'CURRENT TEMPERATURE (degrees C)': temperature-273,
+                'CURRENT HUMIDITY (%)': humidity,
                 'Risk Score': final_risk_score
             }
 
@@ -230,6 +269,21 @@ elif st.session_state.page == 'main':
                 sheet.append_row(list(data.values()))
             except Exception as e:
                 st.write(f"Error saving data to Google Sheet: {e}")
+                
+            # Display the environmental factors
+            st.write("### Environmental Factors")
+            st.write(f"- Current Temperature: {temperature - 273} °C")
+            st.write(f"- Current Humidity: {humidity}%")
+            st.write(f"- Air Quality: {env_factors[0]}")
+            st.write(f"- Noise Pollution: {env_factors[2]}")
+            st.write(f"- Green Spaces: {env_factors[3]}")
+            st.write(f"- Housing Quality: {env_factors[5]}")
+            st.write(f"- Light Pollution: {env_factors[6]}")
+            st.write(f"- Traffic Density: {env_factors[7]}")
+            st.write(f"- Industrial Activity: {env_factors[8]}")
+            st.write(f"- Socioeconomic Factors: {env_factors[9]}")
+            st.write(f"- Waste Management: {env_factors[10]}")
+            st.write(f"- Radiation: {env_factors[11]}")
 
             # Display the final risk score
             st.subheader(f'Your Health Risk Score: {final_risk_score:.2f}')
