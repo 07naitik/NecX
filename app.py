@@ -271,8 +271,7 @@ elif st.session_state.page == 'main':
                 st.write(f"Error saving data to Google Sheet: {e}")
                 
             # Display the environmental factors
-            temperature_C = temperature:.2f
-            temperature_C -= 273
+            temperature_C = round(temperature - 273.15, 2)
             st.write("### Environmental Factors")
             st.write(f"- Current Temperature: {(temperature_C} °C")
             st.write(f"- Current Humidity: {humidity}%")
