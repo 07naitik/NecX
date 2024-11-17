@@ -273,7 +273,7 @@ elif st.session_state.page == 'main':
             # Display the environmental factors
             temperature_C = round(temperature - 273.15, 2)
             st.write("### Environmental Factors")
-            st.write(f"- Current Temperature: {(temperature_C} °C")
+            st.write(f"- Current Temperature: {temperature_C} °C")
             st.write(f"- Current Humidity: {humidity}%")
             st.write(f"- Air Quality: {env_factors[0]}")
             st.write(f"- Noise Pollution: {env_factors[2]}")
